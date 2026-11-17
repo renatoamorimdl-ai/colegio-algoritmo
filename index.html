@@ -13,7 +13,31 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
 
-<!-- Cole aqui o Meta Pixel / Google Tag Manager -->
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=GT-5N2628LN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'GT-5N2628LN');      /* Tag - Colégio Algoritmo (inclui AW-11070415050) */
+  gtag('config', 'AW-844511116');     /* Google Ads */
+  gtag('config', 'G-29Q1TEBP29');     /* Google Analytics 4 */
+</script>
+<!-- End Google tag -->
+
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '327003414954615');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none" alt=""
+src="https://www.facebook.com/tr?id=327003414954615&ev=PageView&noscript=1"></noscript>
+<!-- End Meta Pixel Code -->
 
 <style>
 :root{
@@ -542,9 +566,36 @@ function sendLead(params){
   if(!SHEET_ENDPOINT.startsWith('https://')) return Promise.resolve();
   return fetch(SHEET_ENDPOINT,{method:'POST',mode:'no-cors',body:params,keepalive:true}).catch(()=>{});
 }
-function trackLead(origem){
-  window.dataLayer=window.dataLayer||[]; dataLayer.push({event:'generate_lead',lead_origem:origem});
-  if(typeof fbq==='function') fbq('track', origem==='WhatsApp'?'Contact':'Lead');
+/* Rótulos de conversão do Google Ads (preencha quando criar as conversões, ex.: 'AW-11070415050/AbCdEf123') */
+const GADS_CONV_FORM = '';
+const GADS_CONV_WHATS = '';
+const META_PIXEL_ID = '327003414954615';
+
+function trackLead(origem, form){
+  const isWa = origem==='WhatsApp';
+  const nome=(form.nome&&form.nome.value||'').trim();
+  const tel=(form.telefone&&form.telefone.value||'').replace(/\D/g,'');
+  const email=(form.email&&form.email.value||'').trim().toLowerCase();
+  const seg=form.segmento&&form.segmento.value||'';
+  const eventId='lead_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  try{
+    /* Correspondência avançada (Meta) e conversões otimizadas (Google): dados são criptografados (hash) pelas próprias tags */
+    if(typeof fbq==='function'){
+      const am={ph:'55'+tel, country:'br', ct:'joaopessoa', st:'pb'};
+      if(email) am.em=email;
+      if(nome){const parts=nome.toLowerCase().split(/\s+/); am.fn=parts[0]; if(parts.length>1) am.ln=parts[parts.length-1];}
+      fbq('init', META_PIXEL_ID, am);
+      fbq('track', isWa?'Contact':'Lead', {content_name:'Matrículas 2027', content_category:seg}, {eventID:eventId});
+    }
+    if(typeof gtag==='function'){
+      const ud={phone_number:'+55'+tel}; if(email) ud.email=email;
+      gtag('set','user_data',ud);
+      gtag('event','generate_lead',{lead_source:origem, segmento:seg});
+      const conv=isWa?GADS_CONV_WHATS:GADS_CONV_FORM;
+      if(conv) gtag('event','conversion',{send_to:conv});
+    }
+    window.dataLayer=window.dataLayer||[]; dataLayer.push({event:'lead_algoritmo',lead_origem:origem,segmento:seg});
+  }catch(e){}
 }
 
 /* Série dinâmica */
@@ -565,7 +616,7 @@ mainForm.addEventListener('submit',async e=>{
   if(mainForm.website.value) return;
   if(!check(mainForm)) return;
   const btn=document.getElementById('f-btn'); btn.disabled=true; btn.textContent='Enviando...';
-  trackLead('Formulário LP');
+  trackLead('Formulário LP', mainForm);
   await Promise.race([sendLead(payload(mainForm,'Formulário LP')), new Promise(r=>setTimeout(r,4000))]);
   location.href=REDIRECT_URL;
 });
@@ -584,9 +635,9 @@ waForm.addEventListener('submit',e=>{
   const nome=waForm.nome.value.trim(), ens=waForm.segmento.value;
   const params=payload(waForm,'WhatsApp');
   if(SHEET_ENDPOINT.startsWith('https://') && navigator.sendBeacon) navigator.sendBeacon(SHEET_ENDPOINT,params); else sendLead(params);
-  trackLead('WhatsApp');
+  trackLead('WhatsApp', waForm);
   const msg=`Olá! Meu nome é ${nome}. Gostaria de informações sobre as Matrículas 2027 do Colégio Algoritmo (${ens}).`;
-  location.href=`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
+  setTimeout(()=>{location.href=`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;},500);
 });
 
 /* Reveal on scroll */
