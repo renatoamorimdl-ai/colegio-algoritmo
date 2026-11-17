@@ -1,17 +1,9 @@
 /**
- * Colégio Algoritmo — Recebimento de leads da LP Matrículas 2027
- * Planilha: https://docs.google.com/spreadsheets/d/169EJvHdtSXW0l1s9ZwxjvqTYl_ab8eRjQIQw5_pp94s
- *
- * Como publicar:
- * 1. Abra a planilha > Extensões > Apps Script. Cole este código e salve.
- * 2. Implantar > Nova implantação > Tipo: App da Web
- *    - Executar como: Eu
- *    - Quem pode acessar: Qualquer pessoa
- * 3. Autorize e copie a URL terminada em /exec.
- * 4. No index.html, cole a URL na constante SHEET_ENDPOINT.
- * Ao alterar o código depois: Implantar > Gerenciar implantações > Editar > Nova versão.
+ * @OnlyCurrentDoc
+ * Colégio Algoritmo — Leads LP Matrículas 2027
+ * Script vinculado à planilha (Extensões > Apps Script).
+ * Manifesto (appsscript.json): oauthScopes = ["https://www.googleapis.com/auth/spreadsheets.currentonly"]
  */
-const SPREADSHEET_ID = '169EJvHdtSXW0l1s9ZwxjvqTYl_ab8eRjQIQw5_pp94s';
 const SHEET_NAME = 'Página1';
 const HEADERS = ['Data/Hora','Origem','Nome','WhatsApp','E-mail','Segmento','Série 2027',
   'utm_source','utm_medium','utm_campaign','utm_term','utm_content','fbclid/gclid','Página'];
@@ -24,7 +16,8 @@ function doPost(e) {
     // honeypot anti-spam
     if (p.website) return json({ ok: true });
 
-    const sh = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sh = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
     if (sh.getLastRow() === 0) sh.appendRow(HEADERS);
 
     const clean = v => String(v || '').replace(/^[=+\-@]/, "'").slice(0, 300);
