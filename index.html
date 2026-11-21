@@ -585,7 +585,10 @@ function trackLead(origem, form){
       if(email) am.em=email;
       if(nome){const parts=nome.toLowerCase().split(/\s+/); am.fn=parts[0]; if(parts.length>1) am.ln=parts[parts.length-1];}
       fbq('init', META_PIXEL_ID, am);
-      fbq('track', isWa?'Contact':'Lead', {content_name:'Matrículas 2027', content_category:seg}, {eventID:eventId});
+      const params={content_name:'Matrículas 2027', content_category:seg, lp:'matriculas-2027'};
+      fbq('trackSingle', META_PIXEL_ID, isWa?'Contact':'Lead', params, {eventID:eventId});
+      /* Evento exclusivo desta LP, para conversão personalizada no Gerenciador de Eventos */
+      fbq('trackSingleCustom', META_PIXEL_ID, isWa?'WhatsAppLPMatriculas2027':'LeadLPMatriculas2027', params, {eventID:eventId+'_lp'});
     }
     if(typeof gtag==='function'){
       const ud={phone_number:'+55'+tel}; if(email) ud.email=email;
