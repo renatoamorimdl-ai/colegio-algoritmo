@@ -1,0 +1,118 @@
+<!--
+  LP Matrículas 2027 – algoritmo.tresmarias.edu.br/matriculas-2027
+  Dispara o evento do Meta Pixel (e Google/planilha) SOMENTE quando o formulário
+  estiver válido, imediatamente antes do envio para o Synapse.
+  Instalação: colar antes de </body>, DEPOIS do código base do Meta Pixel.
+-->
+<script>
+(function () {
+  var PIXEL_ID   = '327003414954615';
+  var EVENTO_LP  = 'LeadLPMatriculas2027';
+  var SHEET_URL  = 'https://script.google.com/macros/s/AKfycbyHWcSXwfXZeYsEbfwFmgqO2Jd76OlfDJk6fvKPXbs9RIgxyBxFxOkxgGj-VjTRNn8k5w/exec'; // '' para desativar
+
+  function acharForm() {
+    var t = document.querySelector('input[name="_token_formulario"]');
+    return (t && t.form) || document.querySelector('form[action*="synapse"]');
+  }
+  function campo(f, n) { return f.querySelector('[name="' + n + '"]'); }
+  function val(f, n) { var c = campo(f, n); return c ? String(c.value || '').trim() : ''; }
+  function so(d) { return String(d || '').replace(/\D/g, ''); }
+
+  function telValido(v) {
+    var d = so(v);
+    if (d.indexOf('55') === 0 && d.length > 11) d = d.slice(2);
+    if (!(d.length === 10 || d.length === 11)) return false;
+    if (+d.slice(0, 2) < 11) return false;
+    if (d.length === 11 && d.charAt(2) !== '9') return false;
+    return true;
+  }
+  function emailValido(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v); }
+
+  function marcar(c, msg) {
+    if (!c) return;
+    c.setCustomValidity(msg || '');
+    if (!c.__lpWatch) { c.__lpWatch = 1; c.addEventListener('input', function () { c.setCustomValidity(''); }); c.addEventListener('change', function () { c.setCustomValidity(''); }); }
+  }
+
+  function validar(f) {
+    var ok = true, nome = campo(f, 'nome'), tel = campo(f, 'telefone'), em = campo(f, 'email'), ac = campo(f, 'aceita_whatsapp');
+    [nome, tel, em, ac].forEach(function (c) { marcar(c, ''); });
+    if (nome && val(f, 'nome').length < 2) { marcar(nome, 'Informe seu nome.'); ok = false; }
+    if (tel && !telValido(val(f, 'telefone'))) { marcar(tel, 'Informe um celular válido com DDD.'); ok = false; }
+    if (em && !emailValido(val(f, 'email'))) { marcar(em, 'Informe um e-mail válido.'); ok = false; }
+    if (ac && !ac.checked) { marcar(ac, 'Marque esta opção para continuar.'); ok = false; }
+    if (!ok) f.reportValidity();
+    return ok;
+  }
+
+  function utm(k) {
+    var q = new URLSearchParams(location.search);
+    try { if (q.get(k)) sessionStorage.setItem(k, q.get(k)); return q.get(k) || sessionStorage.getItem(k) || ''; } catch (e) { return q.get(k) || ''; }
+  }
+
+  function jaEnviadoHoje(chave) {
+    try {
+      var k = 'lp27_' + chave + '_' + new Date().toISOString().slice(0, 10);
+      if (localStorage.getItem(k)) return true;
+      localStorage.setItem(k, '1'); return false;
+    } catch (e) { return false; }
+  }
+
+  function disparar(f) {
+    var nome = val(f, 'nome'), tel = so(val(f, 'telefone')), email = val(f, 'email').toLowerCase();
+    var cursoSel = campo(f, 'curso_id'), curso = cursoSel && cursoSel.selectedIndex >= 0 ? cursoSel.options[cursoSel.selectedIndex].text.trim() : '';
+    if (tel.length <= 11) tel = '55' + tel;
+    if (jaEnviadoHoje(so(tel) || email)) return; // o Synapse recusa duplicados no mesmo dia
+
+    var params = { content_name: 'Matrículas 2027', content_category: curso, lp: 'matriculas-2027' };
+    var eid = 'lp27_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
+    if (typeof fbq === 'function') {
+      var am = { ph: tel, em: email, country: 'br' };
+      var p = nome.toLowerCase().split(/\s+/); if (p[0]) am.fn = p[0]; if (p.length > 1) am.ln = p[p.length - 1];
+      fbq('init', PIXEL_ID, am);
+      fbq('trackSingle', PIXEL_ID, 'Lead', params, { eventID: eid });
+      fbq('trackSingleCustom', PIXEL_ID, EVENTO_LP, params, { eventID: eid + '_lp' });
+    }
+    if (typeof gtag === 'function') {
+      gtag('set', 'user_data', { email: email, phone_number: '+' + tel });
+      gtag('event', 'generate_lead', { lead_source: 'LP Matrículas 2027', curso: curso });
+    }
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ event: 'lead_lp_matriculas_2027', curso: curso });
+
+    if (SHEET_URL) {
+      var d = new URLSearchParams({
+        origem: 'LP Oficial', nome: nome, telefone: val(f, 'telefone'), email: email, segmento: curso, serie: '',
+        utm_source: utm('utm_source'), utm_medium: utm('utm_medium'), utm_campaign: utm('utm_campaign'),
+        utm_term: utm('utm_term'), utm_content: utm('utm_content'),
+        click_id: utm('fbclid') || utm('gclid'), pagina: location.origin + location.pathname
+      });
+      try { navigator.sendBeacon ? navigator.sendBeacon(SHEET_URL, d) : fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: d, keepalive: true }); } catch (e) {}
+    }
+  }
+
+  function iniciar() {
+    var f = acharForm();
+    if (!f || f.__lp27) return;
+    f.__lp27 = true;
+    ['nome', 'telefone', 'email', 'aceita_whatsapp'].forEach(function (n) { var c = campo(f, n); if (c) c.required = true; });
+    utm('utm_source'); utm('utm_medium'); utm('utm_campaign'); utm('utm_term'); utm('utm_content'); utm('fbclid'); utm('gclid');
+
+    f.addEventListener('submit', function (e) {
+      if (f.__lp27Liberado) { f.__lp27Liberado = false; return; }      // 2ª passagem: segue para o Synapse
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (val(f, 'site')) return;                                          // honeypot preenchido = robô
+      if (!validar(f)) return;                                             // inválido: não dispara e não envia
+      disparar(f);
+      setTimeout(function () {                                             // tempo para o pixel sair
+        f.__lp27Liberado = true;
+        if (f.requestSubmit) f.requestSubmit(); else HTMLFormElement.prototype.submit.call(f);
+      }, 400);
+    }, true);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
+  new MutationObserver(iniciar).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
